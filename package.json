@@ -8,6 +8,7 @@
     "url": "https://github.com/totaljs/eshop"
   },
   "dependencies": {
+    "@mollie/api-client": "^3.5.0",
     "connect-sdk-nodejs": "^3.11.0",
     "paypal-express-checkout": "^1.6.3",
     "total.js": "latest"
