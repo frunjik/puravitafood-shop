@@ -268,7 +268,7 @@ function request_payment(order, controller) {
 		// console.log(payment);
 		// Forward the customer to the payment.getCheckoutUrl()
 
-		LOGGER('request_payment - created payment', orderId, payment, err);
+		LOGGER('request_payment - created payment', orderId, payment);
 
 		controller.redirect(payment.getCheckoutUrl());
 	})
