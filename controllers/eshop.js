@@ -250,7 +250,7 @@ function request_payment(order, controller) {
 	/* via the route: checkout/ORDERID?payment=mollie */
 
 	// const hostname = 'https://ewxric7b5b0001hw51c.eu01.totaljs.cloud';
-	const hostname = controller.uri.host;
+	const hostname = F.global.config.url;
 	const orderId = order.id;
 
 	mollieClient.payments.create({
@@ -267,11 +267,14 @@ function request_payment(order, controller) {
 		// payment.id contains the payment made by mollie
 		// console.log(payment);
 		// Forward the customer to the payment.getCheckoutUrl()
+
+		LOGGER('request_payment - created payment', orderId, payment, err);
+
 		controller.redirect(payment.getCheckoutUrl());
 	})
 	.catch(err => {
 		// Handle the error
-		LOGGER('request_payment - create payment', orderId, err);
+		LOGGER('ERROR request_payment - create payment', orderId, err);
 		controller.throw500(err);
 	});
 }
@@ -284,24 +287,18 @@ function process_payment() {
 
 	mollieClient.payments.get(paymentId)
 		.then(payment => {
+
+			LOGGER('process_payment - got payment', payment);
+
 			if (payment.isPaid()) {
 				const options = {id: orderId};
-				$GET('Order', options, function(err, order) {
-
-					if (err) {
-						LOGGER('process_payment - get order', orderId, paymentId, err);
-						self.throw500(err);
-						return;
-					}
-			
-					$WORKFLOW('Order', 'paid', options, () => self.plain(''));
-				});
+				$WORKFLOW('Order', 'paid', options, () => self.plain(''));
 			} else {
 				self.plain('');
 			}
 		})
 		.catch(err => {
-			LOGGER('process_payment - get payment', paymentId, err);
+			LOGGER('ERROR process_payment - get payment', paymentId, err);
 			self.throw500(err);
 		});
 }
@@ -314,7 +311,7 @@ function confirm_payment(id) {
 	$GET('Order', options, function(err, order) {
 
 		if (err) {
-			LOGGER('confirm_payment', id, err);
+			LOGGER('ERROR confirm_payment', id, err);
 			self.throw404(err);
 		}
 
@@ -322,4 +319,3 @@ function confirm_payment(id) {
 		self.redirect(url + '?paid=' + (order.ispaid ? '1': '0'));
 	});
 }
-
