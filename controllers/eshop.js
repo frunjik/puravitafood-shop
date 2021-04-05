@@ -282,15 +282,16 @@ function request_payment(order, controller) {
 function process_payment() {
 	var self = this;
 
-	const orderId = self.body.metadata;
 	const paymentId = self.body.id;
 
 	mollieClient.payments.get(paymentId)
 		.then(payment => {
 
-			LOGGER('process_payment - got payment', payment);
+			const orderId = payment.metadata;
 
-			if (payment.status === 'paid') {
+			LOGGER('process_payment - got payment', paymentId, orderId);
+
+			if (payment.isPaid()) {
 				const options = {id: orderId};
 				$WORKFLOW('Order', 'paid', options, () => self.plain('paid'));
 			} else {
