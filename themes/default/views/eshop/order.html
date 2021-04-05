@@ -3,9 +3,7 @@
 <div class="row">
 	<div class="col-md-6">
 		<div class="content">
-			<h1>TEST</h1>
-
-
+			<h1>TEST PAYMENTS</h1>
 			@{if query.paid === '0'}
 			<div class="contentwarning">
 				<i class="fa fa-warning"></i>@(We didn't receive a payment. <b>Try to pay again</b>.)
@@ -79,8 +77,13 @@
 
 				@{if !model.isfinished && !model.ispaid}
 					<br />
-					<div><button class="button b exec" name="paypal" data-exec="pay"><i class="fa fa-paypal"></i>@(Pay now)</button></div>
-					<div class="help">@(You will be redirect to secured <b>PayPal</b> payment page.)</div>
+					<div>
+						<button class="button b exec" name="mollie" data-exec="pay"><i class="fa fa-send"></i>@(Pay NOW)</button>
+					</div>
+					<!-- div>
+						<button class="button b exec" name="paypal" data-exec="pay"><i class="fa fa-paypal"></i>@(Pay now)</button>
+					</div -->
+					<div class="help">@(You will be redirect to <b>secured</b> payment page.)</div>
 				@{fi}
 
 			</div>
