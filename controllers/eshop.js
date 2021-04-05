@@ -1,3 +1,6 @@
+const { createMollieClient } = require('@mollie/api-client');
+const mollieClient = createMollieClient({ apiKey: F.config['payment-key']});
+
 exports.install = function() {
 	ROUTE('#popular', view_popular);
 	ROUTE('#top', view_top);
@@ -11,8 +14,19 @@ exports.install = function() {
 	ROUTE('#account', view_signin, ['unauthorize']);
 	ROUTE('#logoff', redirect_logoff, ['authorize']);
 
-	// Payment process
+	// Paypal Payment process (called by PayPal)
 	ROUTE('#payment/', paypal_process, ['*Order', 10000]);
+
+	// Mollie payment process
+	// this creates the payment and redirects to payment provider (mollie)
+	// it is called from the viewing route, checkout/ORDERID?payment=mollie
+	ROUTE('/request-payment/', request_payment);
+
+	// webhook call back from provider to set the status of the order
+	ROUTE('/process-payment/', process_payment, ['post']);
+
+	// result callback from provider of payment (order status is already set via webhook call)
+	ROUTE('/confirm-payment/{id}', confirm_payment);
 };
 
 function view_category() {
@@ -145,6 +159,10 @@ function view_order(id) {
 				case 'paypal':
 					paypal_redirect(response, self);
 					return;
+
+				case 'mollie':
+					request_payment(response, self);
+					return;
 			}
 		}
 
@@ -177,10 +195,10 @@ function view_signin() {
 	self.view('signin');
 }
 
+// Paypal payments
 function paypal_redirect(order, controller) {
 
-	controller.redirect('/');
-
+	/* this is called by pressing the pay-now button on the order page - via the view route */
 
 	var redirect = F.global.config.url + controller.sitemap_url('order', controller.id) + 'paypal/';
 	var paypal = require('paypal-express-checkout').create(F.global.config.paypaluser, F.global.config.paypalpassword, F.global.config.paypalsignature, redirect, redirect, F.global.config.paypaldebug);
@@ -195,10 +213,12 @@ function paypal_redirect(order, controller) {
 
 function paypal_process(id) {
 
+	/* this is called by the (paypal) payment provider */
+
 	var self = this;
 	var redirect = F.global.config.url + self.url;
 	var paypal = require('paypal-express-checkout').create(F.global.config.paypaluser, F.global.config.paypalpassword, F.global.config.paypalsignature, redirect, redirect, F.global.config.paypaldebug);
-
+	
 	self.id = id;
 
 	paypal.detail(self, function(err, data) {
@@ -223,3 +243,83 @@ function paypal_process(id) {
 			self.redirect(url + '?paid=0');
 	});
 }
+
+// Mollie payments
+function request_payment(order, controller) {
+	/* this is called then the paypal button is pressed from the checkout page /checkout/ORDERID */
+	/* via the route: checkout/ORDERID?payment=mollie */
+
+	// const hostname = 'https://ewxric7b5b0001hw51c.eu01.totaljs.cloud';
+	const hostname = controller.uri.host;
+	const orderId = order.id;
+
+	mollieClient.payments.create({
+		amount: {
+			value: order.price.toFixed(2),
+			currency: 'EUR'
+		},
+		metadata: orderId,
+		description: 'payment ' + orderId,
+		redirectUrl: hostname + '/confirm-payment/' + orderId,
+		webhookUrl:  hostname + '/process-payment/'
+	})
+	.then(payment => {
+		// payment.id contains the payment made by mollie
+		// console.log(payment);
+		// Forward the customer to the payment.getCheckoutUrl()
+		controller.redirect(payment.getCheckoutUrl());
+	})
+	.catch(err => {
+		// Handle the error
+		LOGGER('request_payment - create payment', orderId, err);
+		controller.throw500(err);
+	});
+}
+
+function process_payment() {
+	var self = this;
+
+	const orderId = self.body.metadata;
+	const paymentId = self.body.id;
+
+	mollieClient.payments.get(paymentId)
+		.then(payment => {
+			if (payment.isPaid()) {
+				const options = {id: orderId};
+				$GET('Order', options, function(err, order) {
+
+					if (err) {
+						LOGGER('process_payment - get order', orderId, paymentId, err);
+						self.throw500(err);
+						return;
+					}
+			
+					$WORKFLOW('Order', 'paid', options, () => self.plain(''));
+				});
+			} else {
+				self.plain('');
+			}
+		})
+		.catch(err => {
+			LOGGER('process_payment - get payment', paymentId, err);
+			self.throw500(err);
+		});
+}
+
+function confirm_payment(id) {
+
+	var self = this;
+
+	const options = {id};
+	$GET('Order', options, function(err, order) {
+
+		if (err) {
+			LOGGER('confirm_payment', id, err);
+			self.throw404(err);
+		}
+
+		var url = self.sitemap_url('order', id);
+		self.redirect(url + '?paid=' + (order.ispaid ? '1': '0'));
+	});
+}
+
