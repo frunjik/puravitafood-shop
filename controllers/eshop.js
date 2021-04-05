@@ -290,11 +290,11 @@ function process_payment() {
 
 			LOGGER('process_payment - got payment', payment);
 
-			if (payment.isPaid()) {
+			if (payment.status === 'paid') {
 				const options = {id: orderId};
-				$WORKFLOW('Order', 'paid', options, () => self.plain(''));
+				$WORKFLOW('Order', 'paid', options, () => self.plain('paid'));
 			} else {
-				self.plain('');
+				self.plain('unpaid');
 			}
 		})
 		.catch(err => {
