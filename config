@@ -16,4 +16,4 @@ default-image-converter   : gm
 // Default theme
 default-theme             : default
 
-payment-key               : test_APIKEY
+payment-key               : live_Bf5wM4QFJeBxsNxeHekatWQ4BwAG88
